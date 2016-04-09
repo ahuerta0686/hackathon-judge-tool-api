@@ -15,9 +15,8 @@ HackathonSchema.methods.scrapeDevpost = function (callback) {
 	var deferred = Q.defer();
 	var hackathon = this;
 
-	devpost.submissions(hackathon.serviceId).then(
+	devpost.hackathon.projects.all(hackathon.serviceId).then(
 		function successCallback(data) {
-			// console.log(data);
 			deferred.resolve(data);
 		},
 		function errorCallback(error) {
