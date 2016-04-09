@@ -1,5 +1,6 @@
 var mongoose = require('mongoose'),
 	Schema = mongoose.Schema,
+	Q = require('q'),
 	devpost = require('devpost-scraper');
 
 var HackathonSchema = new Schema({
@@ -11,22 +12,20 @@ var HackathonSchema = new Schema({
 });
 
 HackathonSchema.methods.scrapeDevpost = function (callback) {
+	var deferred = Q.defer();
 	var hackathon = this;
-	var Project = mongoose.model('Project');
 
-	devpost.submissions(hackathon.serviceId, 0, null, function (projects) {
-		// hackathon.projects = data;
-		hackathon.projects = [];
-		projects.forEach(function (project) {
-			var hackathonProject = new Project(project);
-			hackathonProject.save(function (error, project) {
-				hackathon.projects.push(hackathonProject);
-			});
-			
+	devpost.submissions(hackathon.serviceId).then(
+		function successCallback(data) {
+			// console.log(data);
+			deferred.resolve(data);
+		},
+		function errorCallback(error) {
+			deferred.reject(error);
+			console.log(error)
 		});
 
-		callback();
-	});
+	return deferred.promise;
 };
 
 mongoose.model('Hackathon', HackathonSchema);

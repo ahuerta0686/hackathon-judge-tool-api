@@ -18,15 +18,54 @@ var getAll = function (req, res) {
 	});
 };
 
+var getHackathon = function (req, res) {
+	Hackathon.find({
+		serviceId: req.params.serviceId
+	})
+	.populate('projects')
+	.exec(function (error, hackathon) {
+		if (error)
+			return res.send(error);
+
+		return res.json(hackathon);
+	});
+};
+
+/*
+ * serviceId: Devpost subdomain for the hackathon
+ */
+var postReset = function (req, res) {
+	Hackathon.findOne({
+		serviceId: req.body.serviceId
+	}, function (error, hackathon) {
+		if (error)
+			return res.send(error);
+
+		var Project = mongoose.model('Project');
+		Project.find({ $in: hackathon.projects }).remove().exec();
+		delete hackathon.projects;
+
+		hackathon.status = "preevent";
+		hackathon.save(function (error) {
+			if (error)
+				return res.send(error);
+
+			return res.json(hackathon);
+		});
+	});
+};
+
 /*
  * serviceId: Devpost subdomain for the hackathon
  */
 var postOpen = function (req, res) {
-	Hackathon.find({
+	Hackathon.findOne({
 		serviceId: req.body.serviceId
 	}, function (error, hackathon) {
-		hackathon.status = "open";
+		if (error)
+			return res.send(error);
 
+		hackathon.status = "open";
 		hackathon.save(function (error) {
 			if (error)
 				return res.send(error);
@@ -51,16 +90,39 @@ var postClose = function (req, res) {
 		hackathon.status = "closed";
 
 		// Do scraping now
-		hackathon.scrapeDevpost(save);
+		hackathon.scrapeDevpost()
+		.then(
+			function successCallback(data) {
+				return { status: 'OK', projects: data };
+			},
+			function errorCallback(error) {
+				return { status: 'FAIL', message: error };
+			})
+		.then(
+			function (result) {
+				if (result.status == 'OK') {
+					var Project = mongoose.model('Project');
 
-		function save() {
-			hackathon.save(function (error) {
-				if (error)
-					return res.send(error);
+					// Create mongoose documents
+					Project.create(result.projects).then(
+						function (data) {
+							// Assign them to the hackathon
+							hackathon.projects = data;
+							hackathon.save(function (error) {
+								if (error)
+									return res.send(error);
 
-				return res.json(hackathon);
+								return res.json(hackathon);
+							});
+						},
+						function (error) {
+							return res.send(error);
+						});
+				}
+				else {
+					return res.json(result.message);
+				}
 			});
-		}
 	});
 };
 
@@ -81,5 +143,8 @@ var postCreate = function (req, res) {
 };
 
 router.get('/all', getAll);
+router.get('/h/:serviceId', getHackathon);
 router.post('/create', postCreate);
+router.post('/reset', postReset);
+router.post('/open', postOpen);
 router.post('/close', postClose);
