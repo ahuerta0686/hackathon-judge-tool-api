@@ -21,6 +21,9 @@ var getProject = function (req, res) {
 	});
 };
 
+/*
+ * slug: Devpost URL slug for a project
+ */
 var getProjectCriteria = function (req, res) {
 	Project.findOne({
 		slug: req.params.slug

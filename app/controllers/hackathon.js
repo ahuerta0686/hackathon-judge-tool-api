@@ -145,7 +145,12 @@ var postClose = function (req, res) {
 		// Do scraping now
 		hackathon.scrapeDevpost()
 		.then(
-			function successCallback(unfilledProjects) {
+			function successCallback(data) {
+				var unfilledProjects = data[0],
+					filters = data[1];
+
+				hackathon.prizeFilters = filters;
+
 				var Project = mongoose.model('Project');
 				var projectPromises = [];
 				unfilledProjects.forEach(function (project, index) {
@@ -164,17 +169,25 @@ var postClose = function (req, res) {
 
 						// Create mongoose documents
 						Project.create(filledProjects).then(
-							function (data) {
-								// Assign them to the hackathon
-								hackathon.projects = data;
-								hackathon.save(function (error) {
-									if (error)
-										return res.status(500).send(error);
+							function successCallback(data) {
+								// Scrape to give projects prize categories
+								hackathon.scrapeDevpostFilters()
+								.then(
+									function successCallback() {
+										// Assign them to the hackathon
+										hackathon.projects = data;
+										hackathon.save(function (error) {
+											if (error)
+												return res.status(500).send(error);
 
-									return res.json(hackathon);
-								});
+											return res.json(hackathon);
+										});
+									},
+									function errorCallback(error) {
+										return res.status(400).send(error);
+									});
 							},
-							function (error) {
+							function errorCallback(error) {
 								return res.send(error);
 							});
 					},

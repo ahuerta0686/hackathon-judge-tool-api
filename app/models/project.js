@@ -33,6 +33,7 @@ var ProjectSchema = new Schema({
 	},
 	teamSize: { type: Number },
 	slug: { type: String, unique: true },
+	prizeCategories: [ { type: String } ],
 
 	criteria: [ String ],
 	pointMinimum: Number,
