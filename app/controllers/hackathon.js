@@ -149,6 +149,8 @@ var postClose = function (req, res) {
 				var unfilledProjects = data[0],
 					filters = data[1];
 
+				console.log(filters);
+
 				hackathon.prizeFilters = filters;
 
 				var Project = mongoose.model('Project');

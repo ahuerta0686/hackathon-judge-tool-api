@@ -11,7 +11,8 @@ var HackathonSchema = new Schema({
 	status: { type: String, default: 'preevent' },
 	prizeFilters: [ {
 		paramKey: { type: String },
-		paramValue: { type: String }
+		paramValue: { type: String },
+		text: { type: String }
 	} ],
 
 	criteria: [ { type: String } ],
@@ -40,17 +41,14 @@ HackathonSchema.methods.scrapeDevpostFilters = function () {
 				filteredProjects.forEach(function (project) {
 					projectSlugs.push(project.slug);
 				});
-				// console.log(projectSlugs);
 				morePromises.push((function () {
 					var deferred = Q.defer();
 
 					morePromises.push(Project.update(
 						{ slug: { $in: projectSlugs } },
-						{ $push: { prizeCategories: hackathon.prizeFilters[index].paramValue } },
+						{ $push: { prizeCategories: hackathon.prizeFilters[index].text } },
 						{ multi: true },
 						function (error, raw) {
-							console.log(projectSlugs);
-							console.log(raw);
 							// console.log(hackathon.prizeFilters[index].paramValue);
 							deferred.resolve();
 						})
