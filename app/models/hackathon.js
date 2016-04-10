@@ -8,7 +8,11 @@ var HackathonSchema = new Schema({
 	service: { type: String, default: 'devpost' },
 	serviceId: { type: String, required: true, unique: true },
 	projects: [{ type: Schema.ObjectId, ref: 'Project' }],
-	status: { type: String, default: 'preevent' }
+	status: { type: String, default: 'preevent' },
+
+	criteria: [ { type: String } ],
+	pointMinimum: { type: String, default: 1 },
+	pointMaximum: { type: String, default: 10 }
 });
 
 HackathonSchema.methods.scrapeDevpost = function (callback) {

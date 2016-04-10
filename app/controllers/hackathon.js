@@ -11,7 +11,9 @@ module.exports = function (app) {
  * No body elements
  */
 var getAll = function (req, res) {
-	Hackathon.find().populate('projects').exec(function (error, hackathons) {
+	Hackathon.find()
+	.populate('projects')
+	.exec(function (error, hackathons) {
 		if (error)
 			return res.send(error);
 		else
@@ -19,6 +21,9 @@ var getAll = function (req, res) {
 	});
 };
 
+/*
+ * serviceId: Devpost subdomain for the hackathon
+ */
 var getHackathon = function (req, res) {
 	Hackathon.find({
 		serviceId: req.params.serviceId
@@ -33,6 +38,49 @@ var getHackathon = function (req, res) {
 };
 
 /*
+ * name: Name of the hackathon
+ * service: Project service being used by the hackathon
+ * serviceId: Devpost subdomain for the hackathon
+ */
+var postCreate = function (req, res) {
+	var hackathon = new Hackathon(req.body);
+
+	hackathon.save(function (error) {
+		if (error)
+			return res.status(500).send(error);
+		
+		return res.json(hackathon);
+	});
+};
+
+/*
+ * serviceId: Devpost subdomain for the hackathon
+ * criteria: JSON array of judging criteria
+ */
+var postCriteria = function (req, res) {
+	Hackathon.findOne({
+		serviceId: req.body.serviceId
+	}, function (error, hackathon) {
+		if (error)
+			return res.status(500).send(error);
+
+		try {
+			hackathon.criteria = JSON.parse(req.body.criteria);
+		} catch (e) {
+			console.log(e);
+			return res.status(400).json({ error: "Not JSON!" });
+		}
+
+		hackathon.save(function (error, hackathon) {
+			if (error)
+				return res.status(500).send(error);
+
+			return res.json(hackathon);
+		});
+	});
+};
+
+/*
  * serviceId: Devpost subdomain for the hackathon
  */
 var postReset = function (req, res) {
@@ -40,7 +88,7 @@ var postReset = function (req, res) {
 		serviceId: req.body.serviceId
 	}, function (error, hackathon) {
 		if (error)
-			return res.send(error);
+			return res.status(500).send(error);
 
 		var Project = mongoose.model('Project');
 		Q(Project.find( { _id: { $in: hackathon.projects } } ).remove().exec())
@@ -97,74 +145,102 @@ var postClose = function (req, res) {
 		// Do scraping now
 		hackathon.scrapeDevpost()
 		.then(
-			function successCallback(data) {
-				return { status: 'OK', projects: data };
+			function successCallback(unfilledProjects) {
+				var Project = mongoose.model('Project');
+				var projectPromises = [];
+				unfilledProjects.forEach(function (project, index) {
+					projectPromises.push(Project.scrapeDevpost(project.slug));
+				});
+				Q.all(projectPromises)
+				.then(
+					function successCallback(filledProjects) {
+						filledProjects.forEach(function (project, index) {
+							project.criteria = hackathon.criteria;
+							project.pointMinimum = hackathon.pointMinimum;
+							project.pointMaximum = hackathon.pointMaximum;
+
+							project.imageUrl = unfilledProjects[index].imageUrl;
+						});
+
+						// Create mongoose documents
+						Project.create(filledProjects).then(
+							function (data) {
+								// Assign them to the hackathon
+								hackathon.projects = data;
+								hackathon.save(function (error) {
+									if (error)
+										return res.status(500).send(error);
+
+									return res.json(hackathon);
+								});
+							},
+							function (error) {
+								return res.send(error);
+							});
+					},
+					function errorCallback(error) {
+						return res.status(400).json(error);
+					});
 			},
 			function errorCallback(error) {
-				return { status: 'FAIL', message: error };
-			})
-		.then(
-			function (result) {
-				if (result.status == 'OK') {
-					var Project = mongoose.model('Project');
-					var projectPromises = [];
-					result.projects.forEach(function (element, index) {
-						projectPromises.push(Project.scrapeDevpost(element.slug));
-					});
-					Q.all(projectPromises)
-					.then(
-						function successCallback(data) {
-							console.log("hi");
-							return data;
-						},
-						function errorCallback(error) {
-							return res.json(error);
-						})
-					.then(
-						function (filledProjects) {
-							// Create mongoose documents
-							Project.create(filledProjects).then(
-								function (data) {
-									// Assign them to the hackathon
-									hackathon.projects = data;
-									hackathon.save(function (error) {
-										if (error)
-											return res.send(error);
-
-										return res.json(hackathon);
-									});
-								},
-								function (error) {
-									return res.send(error);
-								});
-					})
-				}
-				else {
-					return res.json(result.message);
-				}
+				return res.status(400).json(result.message);
 			});
 	});
 };
 
-/*
- * name: Name of the hackathon
- * service: Project service being used by the hackathon
- * serviceId: Devpost subdomain for the hackathon
- */
-var postCreate = function (req, res) {
-	var hackathon = new Hackathon(req.body);
-
-	hackathon.save(function (error) {
+// Middleware
+var isPreEvent = function (req, res, next) {
+	Hackathon.findOne({
+		serviceId: req.body.serviceId
+	}, function (error, hackathon) {
 		if (error)
 			return res.send(error);
-		
-		return res.json(hackathon);
+
+		if (hackathon.status == "preevent")
+			return next();
+		else
+			return res.status(400).json({
+				error: "Invalid status"
+			});
 	});
 };
 
+var isOpen = function (req, res, next) {
+	Hackathon.findOne({
+		serviceId: req.body.serviceId
+	}, function (error, hackathon) {
+		if (error)
+			return res.send(error);
+
+		if (hackathon.status == "open")
+			return next();
+		else
+			return res.status(400).json({
+				error: "Invalid status"
+			});
+	});
+};
+
+var hasCriteria = function (req, res, next) {
+	Hackathon.findOne({
+		serviceId: req.body.serviceId
+	}, function (error, hackathon) {
+		if (error)
+			return res.status(500).send(error);
+
+		if (Array.isArray(hackathon.criteria) && hackathon.criteria.length > 0)
+			return next();
+		else
+			return res.status(400).send({ error: "Criteria must be set first" });
+	});
+}
+
 router.get('/all', getAll);
+router.get('/h/all', getAll);
 router.get('/h/:serviceId', getHackathon);
 router.post('/create', postCreate);
+
+router.post('/criteria', postCriteria);
 router.post('/reset', postReset);
-router.post('/open', postOpen);
-router.post('/close', postClose);
+router.post('/open', isPreEvent, postOpen);
+router.post('/close', hasCriteria, postClose);

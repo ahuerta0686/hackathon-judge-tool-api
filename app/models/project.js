@@ -6,6 +6,7 @@ var mongoose = require('mongoose'),
 var ProjectSchema = new Schema({
 	title: { type: String, required: true },
 	description: { type: String },
+	imageUrl: { type: String },
 	details: [ {
 		heading: { type: String },
 		text: { type: String }
