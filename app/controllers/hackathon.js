@@ -1,7 +1,9 @@
 var express = require('express'),
 	router = express.Router(),
-	mongoose = require('mongoose'),
 	Q = require('q'),
+	SparkPost = require('sparkpost'),
+	sp = new SparkPost('92d0086a4d1e3eeb8e828ecb5ee71a0c8bec50b3'),
+	mongoose = require('mongoose'),
 	Hackathon = mongoose.model('Hackathon');
 
 module.exports = function (app) {
@@ -50,6 +52,32 @@ var postCreate = function (req, res) {
 			return res.status(500).send(error);
 		
 		return res.json(hackathon);
+	});
+};
+
+/* 
+ * serviceId: Devpost subdomain for the hackathon
+ * username: Login name the judge will use
+ * email: Email they use to receive notifications
+ */
+var putJudge = function (req, res) {
+	Hackathon.findOne({
+		serviceId: req.body.serviceId
+	}, function (error, hackathon) {
+		if (error)
+			return res.status(500).send(error);
+
+		hackathon.judges.push({
+			username: req.body.username,
+			email: req.body.email
+		});
+
+		hackathon.save(function (error, hackathon) {
+			if (error)
+				return res.status(500).send(error);
+
+			return res.json(hackathon);
+		});
 	});
 };
 
@@ -132,6 +160,7 @@ var postOpen = function (req, res) {
 
 /*
  * serviceId: Devpost subdomain for the hackathon
+ * PLS IGNORE THE MESS
  */
 var postClose = function (req, res) {
 	Hackathon.findOne({
@@ -148,8 +177,6 @@ var postClose = function (req, res) {
 			function successCallback(data) {
 				var unfilledProjects = data[0],
 					filters = data[1];
-
-				console.log(filters);
 
 				hackathon.prizeFilters = filters;
 
@@ -182,7 +209,31 @@ var postClose = function (req, res) {
 											if (error)
 												return res.status(500).send(error);
 
-											return res.json(hackathon);
+											hackathon.assignProjects(2);
+
+											var emailRecipients = [];
+											hackathon.judges.forEach(function (judge) {
+												emailRecipients.push({
+													address: judge.email
+												});
+											});
+
+											sp.transmissions.send({
+												transmissionBody: {
+													content: {
+														from: 'testing@sparkpostbox.com',
+														subject: hackathon.name + ': Time to Judge!',
+														html: '<html><body><h2>Look at the damn subject</h2></body></html>'
+													},
+													recipients: emailRecipients
+												}
+											}, function (error) {
+												if (error)
+													console.log(error);
+
+												return res.json(hackathon);
+											});
+											
 										});
 									},
 									function errorCallback(error) {
@@ -254,6 +305,8 @@ router.get('/all', getAll);
 router.get('/h/all', getAll);
 router.get('/h/:serviceId', getHackathon);
 router.post('/create', postCreate);
+
+router.put('/judge', putJudge);
 
 router.post('/criteria', postCriteria);
 router.post('/reset', postReset);

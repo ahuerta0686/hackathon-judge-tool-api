@@ -14,11 +14,34 @@ var HackathonSchema = new Schema({
 		paramValue: { type: String },
 		text: { type: String }
 	} ],
+	judges: [{
+		username: { type: String },
+		email: { type: String },
+		specialty: { type: String },
+		projects: [{ type: Schema.ObjectId, ref: 'Project' }],
+		judgedProjects: [{ type: String }]
+	}],
 
 	criteria: [ { type: String } ],
 	pointMinimum: { type: String, default: 1 },
 	pointMaximum: { type: String, default: 10 }
 });
+
+HackathonSchema.methods.assignProjects = function (minJudging) {
+	var hackathon = this;
+
+	var currentJudgeIndex = 0;
+	hackathon.projects.forEach(function (project) {
+		while (project.judges.length < minJudging) {
+			project.judges.push(hackathon.judges[currentJudgeIndex].username);
+			hackathon.judges[currentJudgeIndex].projects.push(project);
+			currentJudgeIndex += 1;
+
+			if (currentJudgeIndex >= hackathon.judges.length)
+				currentJudgeIndex = 0;
+		}
+	});
+};
 
 HackathonSchema.methods.scrapeDevpostFilters = function () {
 	var deferred = Q.defer();

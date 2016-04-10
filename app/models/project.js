@@ -38,6 +38,7 @@ var ProjectSchema = new Schema({
 	criteria: [ String ],
 	pointMinimum: Number,
 	pointMaximum: Number,
+	judges: [{ type: String }],
 	judgements: [ {
 		judge: { type: String },
 		scores: [ {
