@@ -3,6 +3,15 @@ var mongoose = require('mongoose'),
 	Q = require('q'),
 	devpost = require('devpost-scraper');
 
+var schemaOptions = {
+    toObject: {
+      virtuals: true
+    }
+    ,toJSON: {
+      virtuals: true
+    }
+  };
+
 var ProjectSchema = new Schema({
 	title: { type: String, required: true },
 	description: { type: String },
@@ -28,8 +37,33 @@ var ProjectSchema = new Schema({
 	criteria: [ String ],
 	pointMinimum: Number,
 	pointMaximum: Number,
-	pointValues: [ Number ]
-});
+	judgements: [ {
+		judge: { type: String },
+		scores: [ {
+			criteria: String,
+			score: Number
+		} ]
+	} ]
+}, schemaOptions);
+
+ProjectSchema.virtual('compiledScore')
+	.get(function () {
+		var project = this;
+		var overallScore = 0;
+		var totalScores = 0;
+		project.judgements.forEach(function (judgement) {
+			project.criteria.forEach(function (criterion) {
+				judgement.scores.forEach(function (score) {
+					if (score.criteria == criterion) {
+						overallScore += score.score;
+						totalScores += 1;
+					}
+				})
+			});
+		});
+
+		return overallScore / totalScores;
+	});
 
 ProjectSchema.statics.scrapeDevpost = function (projectSlug) {
 	var deferred = Q.defer();

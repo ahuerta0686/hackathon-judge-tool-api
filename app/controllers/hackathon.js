@@ -25,7 +25,7 @@ var getAll = function (req, res) {
  * serviceId: Devpost subdomain for the hackathon
  */
 var getHackathon = function (req, res) {
-	Hackathon.find({
+	Hackathon.findOne({
 		serviceId: req.params.serviceId
 	})
 	.populate('projects')
