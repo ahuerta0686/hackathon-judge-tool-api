@@ -21,7 +21,6 @@ HackathonSchema.methods.scrapeDevpost = function (callback) {
 		},
 		function errorCallback(error) {
 			deferred.reject(error);
-			console.log(error)
 		});
 
 	return deferred.promise;

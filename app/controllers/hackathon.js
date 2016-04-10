@@ -1,6 +1,7 @@
 var express = require('express'),
 	router = express.Router(),
 	mongoose = require('mongoose'),
+	Q = require('q'),
 	Hackathon = mongoose.model('Hackathon');
 
 module.exports = function (app) {
@@ -42,16 +43,22 @@ var postReset = function (req, res) {
 			return res.send(error);
 
 		var Project = mongoose.model('Project');
-		Project.find({ $in: hackathon.projects }).remove().exec();
-		delete hackathon.projects;
+		Q(Project.find( { _id: { $in: hackathon.projects } } ).remove().exec())
+		.then(
+			function () {
+				delete hackathon.projects;
 
-		hackathon.status = "preevent";
-		hackathon.save(function (error) {
-			if (error)
-				return res.send(error);
+				hackathon.status = "preevent";
+				hackathon.save(function (error) {
+					if (error)
+						return res.send(error);
 
-			return res.json(hackathon);
-		});
+					return res.json(hackathon);
+				});
+			},
+			function (error) {
+				return res.json(error);
+			});
 	});
 };
 
@@ -85,8 +92,6 @@ var postClose = function (req, res) {
 		if (error)
 			return res.send(error);
 
-		console.log(hackathon);
-
 		hackathon.status = "closed";
 
 		// Do scraping now
@@ -102,22 +107,37 @@ var postClose = function (req, res) {
 			function (result) {
 				if (result.status == 'OK') {
 					var Project = mongoose.model('Project');
-
-					// Create mongoose documents
-					Project.create(result.projects).then(
-						function (data) {
-							// Assign them to the hackathon
-							hackathon.projects = data;
-							hackathon.save(function (error) {
-								if (error)
-									return res.send(error);
-
-								return res.json(hackathon);
-							});
+					var projectPromises = [];
+					result.projects.forEach(function (element, index) {
+						projectPromises.push(Project.scrapeDevpost(element.slug));
+					});
+					Q.all(projectPromises)
+					.then(
+						function successCallback(data) {
+							console.log("hi");
+							return data;
 						},
-						function (error) {
-							return res.send(error);
-						});
+						function errorCallback(error) {
+							return res.json(error);
+						})
+					.then(
+						function (filledProjects) {
+							// Create mongoose documents
+							Project.create(filledProjects).then(
+								function (data) {
+									// Assign them to the hackathon
+									hackathon.projects = data;
+									hackathon.save(function (error) {
+										if (error)
+											return res.send(error);
+
+										return res.json(hackathon);
+									});
+								},
+								function (error) {
+									return res.send(error);
+								});
+					})
 				}
 				else {
 					return res.json(result.message);
