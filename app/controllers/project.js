@@ -7,6 +7,8 @@ module.exports = function (app) {
 	app.use('/api/project', router);
 }
 
+
+
 /*
  * slug: Devpost URL slug for project
  */
@@ -94,6 +96,12 @@ var canJudge = function (req, res, next) {
 	});
 };
 
-router.get('/p/:slug', getProject);
-router.get('/p/:slug/criteria', getProjectCriteria);
-router.post('/judge', canJudge, postJudge);
+var cors = function (req, res, next) {
+	res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    next();
+};
+
+router.get('/p/:slug', cors, getProject);
+router.get('/p/:slug/criteria', cors, getProjectCriteria);
+router.post('/judge', cors, canJudge, postJudge);

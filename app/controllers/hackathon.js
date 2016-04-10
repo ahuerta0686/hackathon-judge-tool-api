@@ -223,7 +223,7 @@ var postClose = function (req, res) {
 													content: {
 														from: 'testing@sparkpostbox.com',
 														subject: hackathon.name + ': Time to Judge!',
-														html: '<html><body><h2>Look at the damn subject</h2></body></html>'
+														html: '<html><body><h2>You have been assigned to judge projects at ' + hackathon.name + '!</h2></body></html>'
 													},
 													recipients: emailRecipients
 												}
@@ -301,14 +301,20 @@ var hasCriteria = function (req, res, next) {
 	});
 }
 
-router.get('/all', getAll);
-router.get('/h/all', getAll);
-router.get('/h/:serviceId', getHackathon);
-router.post('/create', postCreate);
+var cors = function(req, res, next) {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    next();
+}
 
-router.put('/judge', putJudge);
+router.get('/all', cors, getAll);
+router.get('/h/all', cors, getAll);
+router.get('/h/:serviceId', cors, getHackathon);
+router.post('/create', cors, postCreate);
 
-router.post('/criteria', postCriteria);
-router.post('/reset', postReset);
-router.post('/open', isPreEvent, postOpen);
-router.post('/close', hasCriteria, postClose);
+router.put('/judge', cors, putJudge);
+
+router.post('/criteria', cors, postCriteria);
+router.post('/reset', cors, postReset);
+router.post('/open', cors, isPreEvent, postOpen);
+router.post('/close', cors, hasCriteria, postClose);
