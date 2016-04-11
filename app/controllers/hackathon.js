@@ -2,7 +2,7 @@ var express = require('express'),
 	router = express.Router(),
 	Q = require('q'),
 	SparkPost = require('sparkpost'),
-	sp = new SparkPost('92d0086a4d1e3eeb8e828ecb5ee71a0c8bec50b3'),
+	sp = new SparkPost('REMOVED'),
 	mongoose = require('mongoose'),
 	Hackathon = mongoose.model('Hackathon');
 
